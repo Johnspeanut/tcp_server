@@ -14,30 +14,85 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 public class HttpClientSynchronous {
 
-  // 1. Synchronous Example
+//  // 1. Synchronous Example
+//  private static final HttpClient httpClient = HttpClient.newBuilder().version(Version.HTTP_1_1).connectTimeout(
+//      Duration.ofSeconds(10)).build();
+//
+//  public static void main(String[] args) throws IOException, InterruptedException {
+//    HttpRequest request = HttpRequest.newBuilder().GET().uri(URI.create("http://localhost:8080/tcp_server_war_exploded//HelloWorldServlet/")).setHeader("User-Agent", "Java 11 HttpClient Bot").build();
+//    HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+//
+//    // print response headers
+//    HttpHeaders headers = response.headers();
+//    headers.map().forEach((k,v)->System.out.println(k+":"+v));
+//
+//    // print status code
+//    System.out.println(response.statusCode());
+//
+//    // print response body
+//    System.out.println(response.body());
+//  }
+
+  //1.1 multithreads
+  final static private int NUMTHREADS = 100;
+  private int count = 0;
+  synchronized public void inc(){
+    count++;
+  }
+
+  public int getValue(){
+    return this.count;
+  }
+
   private static final HttpClient httpClient = HttpClient.newBuilder().version(Version.HTTP_1_1).connectTimeout(
       Duration.ofSeconds(10)).build();
 
   public static void main(String[] args) throws IOException, InterruptedException {
+    long startTime = System.currentTimeMillis();
+    final HttpClientSynchronous counter = new HttpClientSynchronous();
+    CountDownLatch  completed = new CountDownLatch(NUMTHREADS);
     HttpRequest request = HttpRequest.newBuilder().GET().uri(URI.create("http://localhost:8080/tcp_server_war_exploded//HelloWorldServlet/")).setHeader("User-Agent", "Java 11 HttpClient Bot").build();
-    HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+    for (int i = 0; i < NUMTHREADS; i++) {
+      // lambda runnable creation - interface only has a single method so lambda works fine
 
-    // print response headers
-    HttpHeaders headers = response.headers();
-    headers.map().forEach((k,v)->System.out.println(k+":"+v));
+      Runnable thread =  () -> {
+        try {
+          httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        } catch (IOException e) {
+          e.printStackTrace();
+        } catch (InterruptedException e) {
+          e.printStackTrace();
+        }
+        completed.countDown();
+      };
+      new Thread(thread).start();
+    }
+    completed.await();
+    long timeCost = System.currentTimeMillis() - startTime;
+    System.out.println("Value should be equal to " + NUMTHREADS + " It is: " + counter.getValue() + "Time is " + timeCost);
 
-    // print status code
-    System.out.println(response.statusCode());
-
-    // print response body
-    System.out.println(response.body());
+//    HttpRequest request = HttpRequest.newBuilder().GET().uri(URI.create("http://localhost:8080/tcp_server_war_exploded//HelloWorldServlet/")).setHeader("User-Agent", "Java 11 HttpClient Bot").build();
+//    HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+//
+//    // print response headers
+//    HttpHeaders headers = response.headers();
+//    headers.map().forEach((k,v)->System.out.println(k+":"+v));
+//
+//    // print status code
+//    System.out.println(response.statusCode());
+//
+//    // print response body
+//    System.out.println(response.body());
+//    System.currentTimeMillis();
   }
+
 
 //  //2.Asynchronous Example  GET
 //  private static final HttpClient httpClient = HttpClient.newBuilder().version(Version.HTTP_2).connectTimeout(Duration.ofSeconds(10)).build();
